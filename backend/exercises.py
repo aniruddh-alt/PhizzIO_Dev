@@ -23,7 +23,7 @@ def calculate_angle(v1, v0, v2):
 
 
 
-def arm_extensions(reps=5, total_sets=1, threshold_angle=120):
+def arm_extensions(frame, reps=5, total_sets=1, threshold_angle=120):
     sets = 0
     status = None
     count = 0
@@ -129,12 +129,7 @@ def arm_extensions(reps=5, total_sets=1, threshold_angle=120):
             
             cv2.putText(image,f"Count: {count} / {reps}", (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)   
             cv2.putText(image,f"Set: {sets} / {total_sets}", (50, 250), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
-            #Draw pose landmarks
-            # if results.pose_landmarks:
-            #     mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
-            #                               mp_drawing.DrawingSpec(color=(245, 117, 66), thickness=2, circle_radius=2),
-            #                               mp_drawing.DrawingSpec(color=(245, 66, 230), thickness=2, circle_radius=2))
-            
+
             # Display frame
             if count == reps:
                 sets+=0.5

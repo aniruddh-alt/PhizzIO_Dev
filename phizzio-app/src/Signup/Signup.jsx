@@ -1,11 +1,13 @@
 // Signup.js
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, useNavigate  } from 'react-router-dom';
+import { ClerkProvider, SignUp, useSignUp } from '@clerk/clerk-react';
 
 import axios from 'axios';
 
 const Signup = () => {
     const navigate = useNavigate();
+  const {isLoaded, signUp, setSession} = useSignUp();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +19,21 @@ const Signup = () => {
     try {
       const response = await axios.post('http://localhost:5000/api/signup', { name, username, password, email, role });
       console.log(response.data);
+      
+      const signUpResult = await signUp.create({
+        emailAddress: email,
+        password,
+        username,
+        firstName: name,
+        publicMetadata: { role },
+      });
+
+      const userid = response.data.user.id;
+      await signUp.update({
+        publicMetadata: { role, userid },
+      });
+      await signUp.complete();
+
       navigate('/login');
       // Handle successful signup
     } catch (error) {

@@ -10,6 +10,9 @@ from exercises import *
 import traceback
 from flask.json import JSONEncoder
 from datetime import timedelta
+from flask_socketio import SocketIO, emit
+import base64
+
 
 load_dotenv()
 
@@ -31,6 +34,7 @@ Session(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 CORS(app,origins='*')
+socketio = SocketIO(app, cors_allowed_origins="*",resources={r"/*":{"origins":"*"}})
 
 class User(UserMixin):
     def __init__(self, id):
@@ -100,8 +104,15 @@ def signup():
                 cur.execute("INSERT INTO PATIENTS (user_id,physio_id) VALUES (%s,%s)", (user_id,1))
             conn.commit()
             
-    return jsonify({'message': 'Signed up'})
+    return jsonify({'message': 'Signed up','user_id':user_id,'role':role,'username':username,'name':name,'email':email})
 
+@app.route('/api/patient_id/<id>', methods=['GET'])
+def get_patientid(user_id):
+    with connect_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT patient_id FROM patients WHERE user_id = %s", (user_id,))
+            patient_id = cur.fetchone()
+            return jsonify({'id': patient_id})
 
 @app.route('/api/login',methods=['POST'])
 def login():
@@ -232,11 +243,11 @@ def get_physio_patient(id):
                     'weight': patient[6], 'DOB': patient[7],'Gender':patient[8], 'exercises': exercises, 'exercise_log': exercise_log,"exercise_list":exercise_list})
 
 
-@app.route('/api/patient', methods=['GET'])
-def get_patient():
+@app.route('/api/patient/<id>', methods=['GET'])
+def get_patient(id):
     with connect_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT username, email, name, injury, age, height, weight FROM users INNER JOIN PATIENTS ON users.userid = PATIENTS.user_id WHERE users.userid = '7' and users.role = 'patient'")
+            cur.execute(f"SELECT username, email, name, injury, age, height, weight FROM users INNER JOIN PATIENTS ON users.userid = PATIENTS.user_id WHERE users.userid = '{id}' and users.role = 'patient'")
             patient = cur.fetchone()
             
             exercises=get_exercises(1)
@@ -289,10 +300,6 @@ def exercise(patient_id, exercise_id):
         return jsonify({'error': 'Unexpected error: ' + str(e)}), 500
     
 
-        
-
-
-
 @app.route('/api/logout',methods=['POST'])
 def logout():
     logout_user()
@@ -337,4 +344,6 @@ def get_exercise_list():
             return exercise_list_obj
 
 if __name__ == '__main__':
-    app.run(debug=True)  # Set debug=False for production
+    app.run(debug=True)
+    #socketio.run(app, debug=True, port=5000)
+    # Set debug=False for production

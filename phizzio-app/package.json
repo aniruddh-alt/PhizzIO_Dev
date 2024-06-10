@@ -1,6 +1,7 @@
 {
   "name": "phizzio-app",
   "private": true,
+  "proxy":"http://localhost:5001",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -10,7 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.2.0",
+    "@clerk/clerk-react": "^5.2.2",
     "axios": "^1.6.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -3,15 +3,29 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import { useParams } from 'react-router-dom';
 import PhysioHeader from "../Physio/PhysioHeader";
+import { useUser } from '@clerk/clerk-react';
 
 function PatientVW() {
     const [patient, setPatient] = useState(null);
     const [exerciseID, setExerciseID] = useState(null);
-    const { id } = useParams();
+    const { user } = useUser();
+    const id = user.publicMetadata.userid;
+
+    
+    const getpatient = async () => {
+        try {
+            const response = await axios.get(`http://localhost:5000/api/patient_id/${id}`);
+            return response.data.id;
+        } catch (error) {
+            console.error('Error fetching patient data:', error);
+        }
+    };
+
+    const patient_id = getpatient();
 
     const PerformExercise = async (exercise_id) => {
         try {
-            const response = await axios.post(`http://localhost:5000/api/exercise/1/${exercise_id}`);
+            const response = await axios.post(`http://localhost:5000/api/exercise/${patient_id}/${exercise_id}`);
             console.log(response.data);
             location.reload();
         } catch (error) {
@@ -22,7 +36,7 @@ function PatientVW() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await axios.get(`http://localhost:5000/api/patient`);
+                const response = await axios.get(`http://localhost:5000/api/patient/${id}`);
                 console.log(response.data);
                 setPatient(response.data);
             } catch (error) {
@@ -33,8 +47,14 @@ function PatientVW() {
     }, [id]);
 
     if (!patient) {
-        return <div>Loading...</div>;
-    }
+        return <>
+                <button type="button" className="bg-indigo-500" disabled>
+                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                    </svg>
+                    Loading...
+                </button>
+                </>
+            }
 
     return (
         <>
@@ -44,7 +64,7 @@ function PatientVW() {
                 <div className="grid grid-cols gap-6">
                     <div className="bg-gray-100 rounded-lg p-6 shadow-md hover:bg-blue-100">
                         <h2 className="text-lg font-bold mb-4 text-center">Your Details</h2>
-                        <p className="text-xl font-bold text-center">Physio Name: Aniruddhan Ramesh</p>
+                        <p className="text-xl font-bold text-center">Physio Name: </p>
                         <p className="text-xl font-bold text-center">Email: {patient.email}</p>
                         <p className="text-xl font-bold text-center">Your Injury: {patient.injury}</p>
                     </div>
