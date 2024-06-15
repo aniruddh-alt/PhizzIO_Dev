@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, session
+from flask import Flask, current_app, jsonify, request, session, Response
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import os
@@ -107,10 +107,10 @@ def signup():
     return jsonify({'message': 'Signed up','user_id':user_id,'role':role,'username':username,'name':name,'email':email})
 
 @app.route('/api/patient_id/<id>', methods=['GET'])
-def get_patientid(user_id):
+def get_patientid(id):
     with connect_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT patient_id FROM patients WHERE user_id = %s", (user_id,))
+            cur.execute("SELECT patient_id FROM patients WHERE user_id = %s", (id,))
             patient_id = cur.fetchone()
             return jsonify({'id': patient_id})
 
@@ -247,12 +247,12 @@ def get_physio_patient(id):
 def get_patient(id):
     with connect_db() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"SELECT username, email, name, injury, age, height, weight FROM users INNER JOIN PATIENTS ON users.userid = PATIENTS.user_id WHERE users.userid = '{id}' and users.role = 'patient'")
+            cur.execute(f"SELECT username, email, name, injury, age, height, weight, patient_id FROM users INNER JOIN PATIENTS ON users.userid = PATIENTS.user_id WHERE users.userid = '{id}' and users.role = 'patient'")
             patient = cur.fetchone()
             
             exercises=get_exercises(1)
             exercise_log = get_exercise_log(1)
-            print(exercises)
+            #print(exercises)
 
             if patient:
                 return jsonify({
@@ -262,42 +262,19 @@ def get_patient(id):
                     'injury': patient[3],
                     'age': patient[4],
                     'height': patient[5],
-                    'weight': patient[6]
+                    'weight': patient[6],
+                    'patient_id': (patient[7])
                 , 'exercises': exercises, 'exercise_log': exercise_log})
             else:
                 return jsonify({'message': 'Patient not found'}), 404
             
-exercise_functions = {
-    '1': squats,
-    '2': heel_slides,
-    '3': knee_extensions,
-    '4': arm_extensions,
-}
+# exercise_functions = {
+#     '1': squats,
+#     '2': heel_slides,
+#     '3': knee_extensions,
+#     '4': arm_extensions,
+# }
 
-@app.route('/api/exercise/<patient_id>/<exercise_id>', methods=['POST'])
-def exercise(patient_id, exercise_id):
-    try:
-        exercise_function = exercise_functions.get(exercise_id)
-        if exercise_function is None:
-            return jsonify({'error': 'Invalid exercise ID'}), 400
-
-        completed, sets, reps, elapsed_time, mistakes = exercise_function()
-        print(completed, sets, reps, elapsed_time, mistakes)
-
-        with connect_db() as conn:
-            with conn.cursor() as cur:
-                print("INSERT INTO PATIENT_EXERCISE_LOG (patient_id, exercise_id, reps_complete, sets_complete, duration, date, mistakes) VALUES (%s, %s, %s, %s, make_interval(secs => %s), CURRENT_DATE,%s)", (patient_id, exercise_id, reps, sets, elapsed_time,mistakes))
-                cur.execute("INSERT INTO PATIENT_EXERCISE_LOG (patient_id, exercise_id, reps_complete, sets_complete, duration, date, mistakes) VALUES (%s, %s, %s, %s, make_interval(secs => %s), CURRENT_DATE, %s)", (patient_id, exercise_id, reps, sets, elapsed_time,mistakes))
-        return jsonify({'message': 'Exercise completed'})
-
-    except psycopg2.Error as e:
-        print("Database error:", e.pgerror)
-        print("Database error details:", e.diag.message_primary)
-        return jsonify({'error': 'Database error: ' + str(e)}), 500
-    except Exception as e:
-        print("Unexpected error:", str(e))
-        traceback.print_exc()  # This will print the stack trace
-        return jsonify({'error': 'Unexpected error: ' + str(e)}), 500
     
 
 @app.route('/api/logout',methods=['POST'])
@@ -313,12 +290,57 @@ def get_data():
     return jsonify(data)
 
 
+exercises = {
+    '1': Squats(),
+    '2': HeelSlides(),
+    '3': KneeExtensions(),
+    '4': ArmExtensions(),
+}
+
+@app.route('/api/exercise/<patient_id>/<exercise_id>', methods=['POST', 'GET'])
+def video_stream(patient_id, exercise_id):
+    global video_ended
+    video_ended = False  # Reset the flag at the start of the video
+    exer = exercises[exercise_id]  # Instantiate a new ArmExtensions object
+    print("Exercise ID: ", patient_id)
+    count = 0
+    def generate():
+        for frame in exer.stream():
+            yield frame
+        global video_ended
+        video_ended = True
+        print("Video ended: ", exer.exercise_data)
+        update_exercise_log(exer.exercise_data, patient_id, exercise_id)
+
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/api/video_status', methods=['GET','POST'])
+def video_status():
+    print("Video ended: ", video_ended)
+    return jsonify({'ended': video_ended})
+
 ### FUNCTIONS
+def update_exercise_log(exercise_data, patient_id, exercise_id):
+    try:
+        with connect_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO PATIENT_EXERCISE_LOG (patient_id, exercise_id, reps_complete, sets_complete, duration, date, mistakes) VALUES (%s, %s, %s, %s, make_interval(secs => %s), NOW(), %s)",  (patient_id, exercise_id, exercise_data['reps'], exercise_data['sets'], exercise_data['elapsed_time'],exercise_data['mistakes']))
+        return jsonify({'message': 'Exercise completed'})
+
+    except psycopg2.Error as e:
+        print("Database error:", e.pgerror)
+        print("Database error details:", e.diag.message_primary)
+        return jsonify({'error': 'Database error: ' + str(e)}), 500
+    except Exception as e:
+        print("Unexpected error:", str(e))
+        traceback.print_exc()  # This will print the stack trace
+        return jsonify({'error': 'Unexpected error: ' + str(e)}), 500
+
 def get_patient_ids(physio_id):
     with connect_db() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT user_id FROM patients INNER JOIN physiotherapist ON patients.physio_id = physiotherapist.physio_id WHERE physiotherapist.physio_id = %s", (physio_id,))
-            patient_ids = cur.fetchall()  # Fetch all patient user_ids
+            patient_ids = cur.fetchall()   # Fetch all patient user_ids
             return [patient_id[0] for patient_id in patient_ids]  # Extract user_ids from the fetched rows
         
 def get_exercises(patient_id):
@@ -331,7 +353,7 @@ def get_exercises(patient_id):
 def get_exercise_log(patient_id):
     with connect_db() as conn:
         with conn.cursor() as cur:
-            cur.execute('SELECT patient_exercise_log.exercise_id, assign_exercise.exercise_name, reps_complete, sets_complete, duration, date, mistakes FROM patient_exercise_log INNER JOIN assign_exercise on patient_exercise_log.exercise_id = assign_exercise.exercise_id WHERE patient_exercise_log.patient_id = %s', (patient_id,))
+            cur.execute('SELECT patient_exercise_log.exercise_id, assign_exercise.exercise_name, reps_complete, sets_complete, duration, date, mistakes FROM patient_exercise_log INNER JOIN assign_exercise on patient_exercise_log.exercise_id = assign_exercise.exercise_id WHERE patient_exercise_log.patient_id = %s ORDER BY patient_exercise_log.date DESC', (patient_id,))
             exercise_log = cur.fetchall()
             exercise_log_obj = [{'exercise_id': log[0], 'exercise_name': log[1], 'reps_complete': log[2], 'sets_complete': log[3], 'duration': log[4], 'date': log[5], 'mistakes':log[6]} for log in exercise_log]
             return exercise_log_obj

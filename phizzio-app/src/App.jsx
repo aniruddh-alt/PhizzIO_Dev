@@ -6,6 +6,7 @@ import Physio from './Physio/Physio.jsx';
 import Patient from './Physio/Patient.jsx';
 import PatientVW from './Patient/PatientVW.jsx';
 import Signup from './Signup/Signup.jsx';
+import Test from './FormGuide/Test.jsx';
 
 const App = () => {
   return (
@@ -68,6 +69,8 @@ const App = () => {
             </SignedOut>
           }
         />
+        <Route path='/test_stream' element={<Test/>}>
+        </Route>
       </Routes>
     </Router>
   );
