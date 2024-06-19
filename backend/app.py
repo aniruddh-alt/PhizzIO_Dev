@@ -303,15 +303,15 @@ def video_stream(patient_id, exercise_id):
     video_ended = False  # Reset the flag at the start of the video
     exer = exercises[exercise_id]  # Instantiate a new ArmExtensions object
     print("Exercise ID: ", patient_id)
-    count = 0
     def generate():
         for frame in exer.stream():
             yield frame
         global video_ended
         video_ended = True
         print("Video ended: ", exer.exercise_data)
-        update_exercise_log(exer.exercise_data, patient_id, exercise_id)
-
+        with app.app_context():
+            update_exercise_log(exer.exercise_data, patient_id, exercise_id)
+            
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/api/video_status', methods=['GET','POST'])

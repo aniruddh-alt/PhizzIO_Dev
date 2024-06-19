@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom';
 import PhysioHeader from "../Physio/PhysioHeader";
 import { useUser } from '@clerk/clerk-react';
 import ExerciseModal from "../FormGuide/exerciseModal";
+import MistakesGraph from "./LogMistakesGraph";
 
 function PatientVW() {
     const [patient, setPatient] = useState(null);
@@ -14,21 +15,25 @@ function PatientVW() {
     const { user } = useUser();
     const id = user.publicMetadata.userid;
     const [isOpen, setIsOpen] = useState(false);
+    const [exvisible, setExvisible] = useState(false);
+    const toggleVisibility = () => {
+        setExvisible(!exvisible);
+    };
 
     const openModal = (exerciseid) => {
         setIsOpen(true);
         setExerciseName(exerciseName);
         setExerciseID(exerciseid);
     };
-
+    
     const closeModal = () => {
         setIsOpen(false);
         location.reload();
     };
-
-
- // Empty dependency array means this effect runs once on mount
-
+    
+    
+    // Empty dependency array means this effect runs once on mount
+    
     const PerformExercise = async (exercise_id) => {
         try {
             const response = await axios.post(`http://localhost:5000/api/exercise/${patient_id}/${exercise_id}`);
@@ -37,18 +42,20 @@ function PatientVW() {
             console.error('Error performing exercise:', error);
         }
     }
-
+    
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const response = await axios.get(`http://localhost:5000/api/patient/${id}`);
                 setPatient(response.data);
+
             } catch (error) {
                 console.error('Error fetching patient data:', error);
             }
         };
         fetchData();
     }, [id]);
+    
     
     if (!patient) {
         return (
@@ -63,20 +70,22 @@ function PatientVW() {
             </div>
         );
     }
+
+    const uniqueExerciseNames = patient.exercise_log ? [...new Set(patient.exercise_log.map(entry => entry.exercise_name))] : [];
     return (
         <>
             <PhysioHeader />
             <div className="container mx-auto px-4 py-8">
                 <h1 className="text-3xl font-bold mb-8 text-center">Welcome, {patient.name}</h1>
                 <div className="grid grid-cols gap-6">
-                    <div className="bg-gray-100 rounded-lg p-6 shadow-md hover:bg-blue-100">
+                    <div className="bg-blue-100 rounded-lg p-6 shadow-md">
                         <h2 className="text-lg font-bold mb-4 text-center">Your Details</h2>
                         <p className="text-xl font-bold text-center">Physio Name: </p>
                         <p className="text-xl font-bold text-center">Email: {patient.email}</p>
                         <p className="text-xl font-bold text-center">Your Injury: {patient.injury}</p>
                     </div>
                 </div>
-                <div className="bg-gray-100 rounded-lg shadow-md mt-5 p-5 hover:bg-gray-200">
+                <div className="bg-blue-100 rounded-lg shadow-md mt-5 p-5">
                     <h1 className="text-3xl font-bold mb-4">Perform Exercises</h1>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                         {patient.exercises.map(exercise => (
@@ -91,33 +100,41 @@ function PatientVW() {
                     </div>
                     {isOpen && <ExerciseModal closeModal={closeModal} name={exerciseName} id={exerciseID} patient_id={patient.patient_id} />}
                 </div>
-                <div className="bg-gray-100 rounded-lg shadow-md mt-5 p-5 ">
-                    <h1 className="text-3xl font-bold mb-4">Exercise Log</h1>
-                    <table className="table-auto md:table-fixed w-full">
-                        <thead>
-                            <tr className="bg-gray-200">
-                                <th className="px-4 py-2 text-left">Date</th>
-                                <th className="px-4 py-2 text-left">Exercise</th>
-                                <th className="px-4 py-2 text-left">Duration</th>
-                                <th className="px-4 py-2 text-left">Sets</th>
-                                <th className="px-4 py-2 text-left">Reps</th>
-                                <th className="px-4 py-2 text-left">Mistake Count</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {patient.exercise_log.map(exercise => (
-                                <tr key={exercise.exercise_id}>
-                                    <td className="border px-4 py-2">{exercise.date}</td>
-                                    <td className="border px-4 py-2">{exercise.exercise_name}</td>
-                                    <td className="border px-4 py-2">{exercise.duration}</td>
-                                    <td className="border px-4 py-2">{exercise.sets_complete}</td>
-                                    <td className="border px-4 py-2">{exercise.reps_complete}</td>
-                                    <td className="border px-4 py-2">{exercise.mistakes}</td>
+                { uniqueExerciseNames.map(exerciseName => (
+                    <MistakesGraph key={exerciseName} exerciseLog={[...patient.exercise_log].reverse()} exerciseName={exerciseName} />
+                ))}
+                <div className="bg-red-50 rounded-lg shadow-md mt-5 p-5 ">
+                    <h1 className="text-3xl font-bold mb-4 cursor-pointer" onClick={toggleVisibility}>
+                        Exercise Log {exvisible ? '▲' : '▼'}
+                    </h1>
+                    {exvisible && 
+                        <table className="table-auto md:table-fixed w-full">
+                            <thead>
+                                <tr className="bg-gray-200">
+                                    <th className="px-4 py-2 text-left">Date</th>
+                                    <th className="px-4 py-2 text-left">Exercise</th>
+                                    <th className="px-4 py-2 text-left">Duration</th>
+                                    <th className="px-4 py-2 text-left">Sets</th>
+                                    <th className="px-4 py-2 text-left">Reps</th>
+                                    <th className="px-4 py-2 text-left">Mistake Count</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {patient.exercise_log.map(exercise => (
+                                    <tr key={exercise.exercise_id}>
+                                        <td className="border px-4 py-2">{exercise.date}</td>
+                                        <td className="border px-4 py-2">{exercise.exercise_name}</td>
+                                        <td className="border px-4 py-2">{exercise.duration}</td>
+                                        <td className="border px-4 py-2">{exercise.sets_complete}</td>
+                                        <td className="border px-4 py-2">{exercise.reps_complete}</td>
+                                        <td className="border px-4 py-2">{exercise.mistakes}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table> 
+                    }
                 </div>
+
             </div>
         </>
     );
