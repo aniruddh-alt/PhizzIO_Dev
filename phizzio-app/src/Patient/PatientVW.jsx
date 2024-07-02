@@ -6,6 +6,7 @@ import PhysioHeader from "../Physio/PhysioHeader";
 import { useUser } from '@clerk/clerk-react';
 import ExerciseModal from "../FormGuide/exerciseModal";
 import MistakesGraph from "./LogMistakesGraph";
+import WeeklySummary from "./WeeklySummary";
 
 function PatientVW() {
     const [patient, setPatient] = useState(null);
@@ -100,9 +101,14 @@ function PatientVW() {
                     </div>
                     {isOpen && <ExerciseModal closeModal={closeModal} name={exerciseName} id={exerciseID} patient_id={patient.patient_id} />}
                 </div>
+                <WeeklySummary patient={patient.exercise_log} uniqueExerciseNames={uniqueExerciseNames} />
+                
+                
                 { uniqueExerciseNames.map(exerciseName => (
                     <MistakesGraph key={exerciseName} exerciseLog={[...patient.exercise_log].reverse()} exerciseName={exerciseName} />
                 ))}
+
+
                 <div className="bg-red-50 rounded-lg shadow-md mt-5 p-5 ">
                     <h1 className="text-3xl font-bold mb-4 cursor-pointer" onClick={toggleVisibility}>
                         Exercise Log {exvisible ? '▲' : '▼'}
