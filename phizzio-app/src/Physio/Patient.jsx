@@ -38,7 +38,22 @@ function Patient() {
         };
         fetchData();
     }, [id]);
-
+    const uniqueExerciseNames = data && data.exercise_log ? [...new Set(data.exercise_log.map(entry => entry.exercise_name))] : [];
+    
+    if (!data){
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <button type="button" className="bg-blue-500 text-white font-bold py-2 px-4 rounded inline-flex items-center" disabled>
+                    <svg className="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zM2 14h-.09a10 10 0 0017.17 0H18c0 5.523-4.477 10-10 10S2 19.523 2 14z"></path>
+                    </svg>
+                    Loading...
+                </button>
+            </div>
+        );
+    }
+    
     return (
         <>
             <PhysioHeader />
