@@ -3,6 +3,7 @@ import axios from "axios";
 import { useParams } from 'react-router-dom';
 import PhysioHeader from './PhysioHeader';
 import Modal from './ExModel';
+import WeeklySummary from '../Patient/WeeklySummary';
 
 
 
@@ -11,11 +12,15 @@ function Patient() {
     const { id } = useParams();
     const [data, setData] = useState(null);
     const [isOpen, setIsOpen] = useState(false);
+    const [exvisible, setExvisible] = useState(false);
 
     const openModal = () => {
         setIsOpen(true);
     };
 
+    const toggleVisibility = () => {
+        setExvisible(!exvisible);
+    };
 
     const closeModal = () => {
         setIsOpen(false);
@@ -108,9 +113,12 @@ function Patient() {
                         </div>
                     </div>
                 )}
-                {data && (
-                    <div className="bg-gray-100 rounded-lg shadow-md mt-5 p-5 ">
-                        <h1 className="text-3xl font-bold mb-4">Exercise Log</h1>
+                <WeeklySummary patient={data.exercise_log} uniqueExerciseNames={uniqueExerciseNames} />
+                <div className="bg-gray-100 rounded-lg shadow-md mt-5 p-5 ">
+                    <h1 className="text-3xl font-bold mb-4 cursor-pointer" onClick={toggleVisibility}>
+                    Exercise Log {exvisible ? '▲' : '▼'}
+                    </h1>
+                    {exvisible && 
                         <table className="table-auto md:table-fixed w-full">
                             <thead>
                                 <tr className="bg-gray-200">
@@ -135,8 +143,8 @@ function Patient() {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
-                )}
+                    }
+                </div>
             </div>
         </>
     );
